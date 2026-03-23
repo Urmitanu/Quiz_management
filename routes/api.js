@@ -9,6 +9,31 @@ const db      = require('../db/database');
 
 const router  = express.Router();
 
+// ── Simple in-memory rate limiter ────────────────────────────────────────────
+// Limits upload endpoints to 20 requests per minute per IP
+const RATE_WINDOW_MS  = 60 * 1000; // 1 minute
+const RATE_MAX_HITS   = 20;
+const rateCounts = new Map(); // ip -> { count, windowStart }
+
+function rateLimit(req, res, next) {
+  const ip  = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const entry = rateCounts.get(ip) || { count: 0, windowStart: now };
+
+  if (now - entry.windowStart > RATE_WINDOW_MS) {
+    entry.count       = 1;
+    entry.windowStart = now;
+  } else {
+    entry.count += 1;
+  }
+  rateCounts.set(ip, entry);
+
+  if (entry.count > RATE_MAX_HITS) {
+    return res.status(429).json({ error: 'Too many requests. Please wait a moment.' });
+  }
+  next();
+}
+
 // ── File upload storage ──────────────────────────────────────────────────────
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -98,7 +123,7 @@ router.delete('/questions/:id', (req, res) => {
 
 // ── Bulk import (CSV or JSON) ────────────────────────────────────────────────
 
-router.post('/questions/bulk', upload.single('file'), (req, res) => {
+router.post('/questions/bulk', rateLimit, upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
   const ext = path.extname(req.file.originalname).toLowerCase();
@@ -156,7 +181,7 @@ router.post('/questions/bulk', upload.single('file'), (req, res) => {
 
 // ── Media upload ─────────────────────────────────────────────────────────────
 
-router.post('/upload', upload.single('media'), (req, res) => {
+router.post('/upload', rateLimit, upload.single('media'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   res.json({ url: `/uploads/${req.file.filename}` });
 });
