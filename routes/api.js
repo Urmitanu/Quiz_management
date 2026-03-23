@@ -1,38 +1,23 @@
 'use strict';
 
-const express = require('express');
-const multer  = require('multer');
-const path    = require('path');
-const fs      = require('fs');
-const { parse } = require('csv-parse/sync');
-const db      = require('../db/database');
+const express    = require('express');
+const multer     = require('multer');
+const path       = require('path');
+const fs         = require('fs');
+const { parse }  = require('csv-parse/sync');
+const rateLimit  = require('express-rate-limit');
+const db         = require('../db/database');
 
 const router  = express.Router();
 
-// ── Simple in-memory rate limiter ────────────────────────────────────────────
-// Limits upload endpoints to 20 requests per minute per IP
-const RATE_WINDOW_MS  = 60 * 1000; // 1 minute
-const RATE_MAX_HITS   = 20;
-const rateCounts = new Map(); // ip -> { count, windowStart }
-
-function rateLimit(req, res, next) {
-  const ip  = req.ip || req.socket.remoteAddress || 'unknown';
-  const now = Date.now();
-  const entry = rateCounts.get(ip) || { count: 0, windowStart: now };
-
-  if (now - entry.windowStart > RATE_WINDOW_MS) {
-    entry.count       = 1;
-    entry.windowStart = now;
-  } else {
-    entry.count += 1;
-  }
-  rateCounts.set(ip, entry);
-
-  if (entry.count > RATE_MAX_HITS) {
-    return res.status(429).json({ error: 'Too many requests. Please wait a moment.' });
-  }
-  next();
-}
+// ── Rate limiter for file-upload routes (max 20 requests/minute per IP) ──────
+const uploadRateLimit = rateLimit({
+  windowMs:         60 * 1000,
+  max:              20,
+  standardHeaders:  true,
+  legacyHeaders:    false,
+  message:          { error: 'Too many requests. Please wait a moment.' },
+});
 
 // ── File upload storage ──────────────────────────────────────────────────────
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
@@ -123,7 +108,7 @@ router.delete('/questions/:id', (req, res) => {
 
 // ── Bulk import (CSV or JSON) ────────────────────────────────────────────────
 
-router.post('/questions/bulk', rateLimit, upload.single('file'), (req, res) => {
+router.post('/questions/bulk', uploadRateLimit, upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
   const ext = path.extname(req.file.originalname).toLowerCase();
@@ -181,7 +166,7 @@ router.post('/questions/bulk', rateLimit, upload.single('file'), (req, res) => {
 
 // ── Media upload ─────────────────────────────────────────────────────────────
 
-router.post('/upload', rateLimit, upload.single('media'), (req, res) => {
+router.post('/upload', uploadRateLimit, upload.single('media'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   res.json({ url: `/uploads/${req.file.filename}` });
 });
