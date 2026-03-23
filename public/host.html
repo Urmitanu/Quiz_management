@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Host Panel – Quiz Management</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .team-card {
+      background: var(--bg3);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: .8rem 1rem;
+      margin-bottom: .6rem;
+      cursor: pointer;
+      transition: border-color .15s;
+    }
+    .team-card.active { border-color: var(--accent); }
+    .team-card.eliminated { opacity: .45; }
+    .team-card .t-name { font-weight: 700; font-size: .95rem; }
+    .team-card .t-score { font-size: 1.4rem; font-weight: 800; color: var(--accent); }
+    .round-btn {
+      background: var(--bg3);
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: .7rem 1.5rem;
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .round-btn:hover  { border-color: var(--accent); }
+    .round-btn.active { border-color: var(--accent); background: rgba(0,212,255,.1); color: var(--accent); }
+    .ctrl-row { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
+    .answer-bar { display: flex; gap: 1rem; }
+    #answer-feedback {
+      padding: 1rem;
+      border-radius: var(--radius);
+      font-weight: 700;
+      font-size: 1.2rem;
+      text-align: center;
+      transition: all .3s;
+    }
+    .score-edit-row { display: flex; gap: .5rem; align-items: center; }
+  </style>
+</head>
+<body>
+<div class="layout-host">
+
+  <!-- ── Top bar ─────────────────────────────────────── -->
+  <header class="topbar">
+    <a href="/" style="font-size:1.4rem;font-weight:800;color:var(--accent)">🎯 Quiz Management</a>
+    <span id="status-badge" class="badge badge-accent">Idle</span>
+    <div style="margin-left:auto;display:flex;gap:.75rem;align-items:center">
+      <button class="btn btn-ghost btn-sm" onclick="location.href='/admin.html'">⚙️ Admin</button>
+      <button class="btn btn-danger btn-sm" id="btn-reset">🔄 Reset Game</button>
+    </div>
+  </header>
+
+  <!-- ── Sidebar: Teams ──────────────────────────────── -->
+  <aside class="sidebar">
+    <div style="margin-bottom:1rem">
+      <div class="card-title mb-1">Teams</div>
+      <div id="team-list">
+        <p class="text-muted" style="font-size:.85rem">Loading teams…</p>
+      </div>
+    </div>
+    <hr class="divider">
+    <div>
+      <div class="card-title mb-1">Manual Score</div>
+      <div class="form-group">
+        <label>Team</label>
+        <select class="form-control" id="manual-team-sel"></select>
+      </div>
+      <div class="form-group">
+        <label>Set score to</label>
+        <div class="score-edit-row">
+          <input type="number" class="form-control" id="manual-score-val" placeholder="e.g. 150">
+          <button class="btn btn-warning btn-sm" id="btn-set-score">Set</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Adjust by ±</label>
+        <div class="score-edit-row">
+          <input type="number" class="form-control" id="manual-delta-val" placeholder="e.g. +20 or -10">
+          <button class="btn btn-ghost btn-sm" id="btn-delta-score">Apply</button>
+        </div>
+      </div>
+    </div>
+    <hr class="divider">
+    <div>
+      <div class="card-title mb-1">Eliminate</div>
+      <div class="form-group">
+        <select class="form-control" id="elim-team-sel"></select>
+      </div>
+      <div class="ctrl-row">
+        <button class="btn btn-danger btn-sm" id="btn-eliminate">Eliminate</button>
+        <button class="btn btn-ghost btn-sm" id="btn-restore-all">Restore All</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main content ────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- Round Selector -->
+    <div class="card mb-3">
+      <div class="card-header"><span class="card-title">Select Round</span></div>
+      <div class="ctrl-row">
+        <button class="round-btn" id="r1-btn" onclick="startRound(1)">Round 1</button>
+        <button class="round-btn" id="r2-btn" onclick="startRound(2)">Round 2</button>
+        <button class="round-btn" id="r3-btn" onclick="startRound(3)">Round 3</button>
+      </div>
+    </div>
+
+    <!-- Phase Selector (shown when round is active) -->
+    <div class="card mb-3 hidden" id="phase-panel">
+      <div class="card-header"><span class="card-title" id="phase-title">Phase</span></div>
+      <div class="ctrl-row" id="phase-btns"></div>
+    </div>
+
+    <!-- Timer -->
+    <div class="card mb-3" id="timer-panel">
+      <div class="timer-display normal" id="timer">--</div>
+    </div>
+
+    <!-- Current Team Info -->
+    <div class="card mb-3" id="team-info-panel">
+      <div class="flex justify-between items-center">
+        <div>
+          <div class="text-muted" style="font-size:.8rem">CURRENT TEAM</div>
+          <div id="current-team-name" style="font-size:1.4rem;font-weight:800">—</div>
+        </div>
+        <div>
+          <div class="text-muted" style="font-size:.8rem">SCORE</div>
+          <div id="current-team-score" style="font-size:1.4rem;font-weight:800;color:var(--accent)">0</div>
+        </div>
+        <div id="r3-question-counter" class="hidden">
+          <div class="text-muted" style="font-size:.8rem">QUESTION</div>
+          <div id="q-counter-val" style="font-size:1.4rem;font-weight:800">0/20</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Round 1 Controls -->
+    <div id="r1-controls" class="hidden">
+      <div class="card mb-3">
+        <div class="card-header"><span class="card-title">Choose Points (Difficulty)</span></div>
+        <div class="point-selector">
+          <button class="point-btn pt10" onclick="choosePoints(10)">10</button>
+          <button class="point-btn pt20" onclick="choosePoints(20)">20</button>
+          <button class="point-btn pt30" onclick="choosePoints(30)">30</button>
+          <button class="point-btn pt40" onclick="choosePoints(40)">40</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Round 2 Controls -->
+    <div id="r2-controls" class="hidden">
+      <div class="card mb-3">
+        <div class="card-header"><span class="card-title">Round 2 Controls</span></div>
+        <div class="ctrl-row">
+          <button class="btn btn-primary" id="btn-load-q">📋 Load Question</button>
+          <button class="btn btn-warning" id="btn-reveal-q" disabled>👁️ Reveal Question</button>
+          <button class="btn btn-ghost btn-sm" id="btn-audio-1x" style="display:none">▶ 1× Speed</button>
+          <button class="btn btn-ghost btn-sm" id="btn-audio-15x" style="display:none">▶ 1.5× Speed</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Round 3 Controls -->
+    <div id="r3-controls" class="hidden">
+      <div class="card mb-3">
+        <div class="card-header"><span class="card-title">Round 3 Controls</span></div>
+        <div class="ctrl-row">
+          <button class="btn btn-primary" id="btn-load-r3-q">📋 Load Question</button>
+          <button class="btn btn-ghost" id="btn-enable-buzzer" disabled>🔔 Enable Buzzer</button>
+          <button class="btn btn-ghost btn-sm" id="btn-reset-buzzer" disabled>↩ Reset Buzzer</button>
+        </div>
+        <div class="mt-2" id="buzz-status" style="font-size:1.2rem;font-weight:700"></div>
+      </div>
+    </div>
+
+    <!-- Question Display -->
+    <div id="question-panel" class="card mb-3 hidden">
+      <div class="card-header">
+        <span class="card-title">Question</span>
+        <span id="q-meta" class="text-muted" style="font-size:.8rem"></span>
+      </div>
+      <div id="media-area"></div>
+      <div id="question-text" class="question-text mb-2"></div>
+      <div id="options-area" class="options-grid"></div>
+    </div>
+
+    <!-- Answer Result Feedback -->
+    <div id="answer-feedback" class="hidden"></div>
+
+    <!-- Answer / Navigation Buttons -->
+    <div class="card mb-3" id="answer-panel">
+      <div class="answer-bar">
+        <button class="btn btn-success btn-lg" id="btn-correct" disabled>✓ Correct</button>
+        <button class="btn btn-danger btn-lg"  id="btn-wrong"   disabled>✗ Wrong</button>
+        <button class="btn btn-ghost  btn-lg"  id="btn-next"    disabled>→ Next</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/host.js"></script>
+</body>
+</html>

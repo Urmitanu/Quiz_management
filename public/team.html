@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Team Panel – Quiz Management</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    body { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; padding:1.5rem; }
+    #team-select-screen { text-align:center; max-width:480px; width:100%; }
+    #game-screen { width:100%; max-width:800px; display:none; flex-direction:column; gap:1rem; }
+    .team-header { background:var(--bg2); border:1px solid var(--border); border-radius:var(--radius); padding:1rem 1.5rem; display:flex; justify-content:space-between; align-items:center; }
+    .team-header .t-name { font-size:1.4rem; font-weight:800; }
+    .team-header .t-score { font-size:2rem; font-weight:800; color:var(--accent); }
+    #wait-msg { text-align:center; color:var(--text-muted); padding:3rem; }
+    .round-info { text-align:center; margin-bottom:.5rem; }
+    .buzzer-area { display:flex; flex-direction:column; align-items:center; gap:1rem; padding:2rem; }
+    #result-banner { display:none; text-align:center; padding:1.5rem; border-radius:14px; font-size:1.8rem; font-weight:800; }
+  </style>
+</head>
+<body>
+
+  <!-- Team selection -->
+  <div id="team-select-screen">
+    <h1 class="mb-2" style="color:var(--accent)">🎯 Quiz Management</h1>
+    <p class="text-muted mb-3">Select your team to join the game</p>
+    <div class="form-group">
+      <select class="form-control" id="team-sel" style="font-size:1.1rem;padding:.8rem">
+        <option value="">— Select Team —</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-lg w-full" id="btn-join">Join</button>
+    <p class="text-muted mt-2" style="font-size:.8rem">If your team is not listed, ask the admin to add it.</p>
+  </div>
+
+  <!-- Game screen -->
+  <div id="game-screen">
+    <div class="team-header">
+      <div>
+        <div class="text-muted" style="font-size:.75rem">TEAM</div>
+        <div class="t-name" id="gs-team-name">—</div>
+      </div>
+      <div style="text-align:right">
+        <div class="text-muted" style="font-size:.75rem">SCORE</div>
+        <div class="t-score" id="gs-team-score">0</div>
+      </div>
+    </div>
+
+    <div id="round-phase-info" class="round-info hidden">
+      <span class="round-badge" id="rp-badge">Round — Phase —</span>
+    </div>
+
+    <!-- Timer -->
+    <div class="timer-display normal" id="team-timer" style="display:none">--</div>
+
+    <!-- Wait message -->
+    <div id="wait-msg">⏳ Waiting for the host to start the game…</div>
+
+    <!-- Question display (shown when question is revealed) -->
+    <div id="question-area" class="card hidden">
+      <div id="q-media-area"></div>
+      <div id="q-text" class="question-text mb-2"></div>
+      <div id="q-options" class="options-grid"></div>
+    </div>
+
+    <!-- Answer result banner -->
+    <div id="result-banner"></div>
+
+    <!-- Buzzer (Round 3 only) -->
+    <div id="buzzer-area" class="buzzer-area hidden">
+      <p class="text-muted">First to buzz gets to answer!</p>
+      <button class="buzzer-btn" id="buzzer-btn" disabled>BUZZ!</button>
+      <div id="buzz-result" style="font-size:1.1rem;font-weight:700;text-align:center"></div>
+    </div>
+  </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/team.js"></script>
+</body>
+</html>
